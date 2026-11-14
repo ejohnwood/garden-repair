@@ -932,7 +932,7 @@ html,body{height:100%;overflow:hidden}
 </div>
 <label class="component-picker">Component <select data-component aria-label="Individual component"><option value="">Choose a board or post</option></select></label><label class="isolate-control"><input type="checkbox" data-isolate> Isolate selected</label><p data-part role="status" style="padding:8px 0;min-height:36px">Click a board or post to see its size.</p>
   <div class="model-stage" data-stage aria-label="Interactive three-dimensional model of the garden enclosure"></div>
-  <div class="model-note text-small">Drag to orbit; scroll to zoom. Click a component to inspect it. Pieces radiate from the garden center. Separation is illustrative; dimensions remain unchanged. Base, soil, and wire are hidden for clarity. Component IDs refer to this model, which uses the fixed specification.</div>
+  <div class="model-note text-small">Drag to orbit; scroll to zoom. Click a component to inspect it. Pieces radiate from the garden center; the camera stays fixed as you adjust separation. Separation is illustrative; dimensions remain unchanged. Base, soil, and wire are hidden for clarity. Component IDs refer to this model, which uses the fixed specification.</div>
   <script type="module">
     import * as THREE from 'https://esm.sh/three@0.169.0';
     import { OrbitControls } from 'https://esm.sh/three@0.169.0/examples/jsm/controls/OrbitControls.js';
@@ -1142,7 +1142,13 @@ html,body{height:100%;overflow:hidden}
       camera.position.copy(center).addScaledVector(direction,Math.max(25,distance*1.16));
       controls.update();
     }
-    function updateExplosion(value,fit=true) {
+    function fitFullExplosion() {
+      const amount = slider.value;
+      updateExplosion(100,false);
+      fitModel();
+      updateExplosion(amount,false);
+    }
+    function updateExplosion(value,fit=false) {
       const amount = Math.max(0,Math.min(100,Number(value)));
       slider.value = String(amount);
       root.querySelector('[data-percent]').textContent = amount + '%';
@@ -1206,7 +1212,7 @@ html,body{height:100%;overflow:hidden}
       viewButtons.forEach(b=>{ const active=b.dataset.view===mode; b.classList.toggle('btn-primary',active); b.setAttribute('aria-pressed',String(active)); });
       controls.enableRotate = mode !== 'top';
       if (mode !== 'top') camera.position.copy(controls.target).add(new THREE.Vector3(185,170,234));
-      fitModel();
+      fitFullExplosion();
     }
     viewButtons.forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
     updateExplosion(55,false);
@@ -1214,7 +1220,7 @@ html,body{height:100%;overflow:hidden}
     function resize() {
       const w=stage.clientWidth,h=stage.clientHeight;
       if (!w || !h) return;
-      renderer.setSize(w,h,false); camera.aspect=w/h; camera.fov=38; camera.updateProjectionMatrix(); fitModel();
+      renderer.setSize(w,h,false); camera.aspect=w/h; camera.fov=38; camera.updateProjectionMatrix(); fitFullExplosion();
     }
     new ResizeObserver(resize).observe(stage); resize();
     setView('three');
