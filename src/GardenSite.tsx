@@ -26,6 +26,18 @@ const gateLines: Line[] = [
 ];
 
 export function GardenSite() {
+  useEffect(() => {
+    // The browser checks the initial fragment before React has mounted the sections.
+    // Scroll once the target exists; subsequent anchor clicks keep native behavior.
+    if (!window.location.hash) return;
+    let id: string;
+    try { id = decodeURIComponent(window.location.hash.slice(1)); }
+    catch { return; }
+    const target = document.getElementById(id);
+    if (!target) return;
+    const frame = requestAnimationFrame(() => target.scrollIntoView({ behavior: "instant", block: "start" }));
+    return () => cancelAnimationFrame(frame);
+  }, []);
   const [explodedLoaded, setExplodedLoaded] = useState(false);
   const [frameView, setFrameView] = useState<"assembled" | "exploded">("assembled");
   const [lines, setLines] = useState<Line[]>(lockedLines);

@@ -56,7 +56,7 @@ export function HardwareSupplies() {
   const visible=items.filter(item=>filter==="all" || (filter==="remaining"?!purchased[item.id]:item.group===filter));
   return <section className="spec-section hardware-section" id="hardware">
     <div className="section-head">
-      <div><p className="eyebrow">5 / HARDWARE &amp; SUPPLIES</p><h2>Everything that holds it together</h2></div>
+      <div><p className="eyebrow">5 / HARDWARE &amp; SUPPLIES</p><h2>Hardware &amp; supplies</h2></div>
       <p>Proposed hardware for the frame, enclosure, and gate. Photos show the hardware type; linked products are examples, not confirmed selections.</p>
     </div>
     <div className="hardware-summary screen-only">
