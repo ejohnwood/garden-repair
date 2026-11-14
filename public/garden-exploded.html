@@ -932,7 +932,7 @@ html,body{height:100%;overflow:hidden}
 </div>
 <label class="component-picker">Component <select data-component aria-label="Individual component"><option value="">Choose a board or post</option></select></label><label class="isolate-control"><input type="checkbox" data-isolate> Isolate selected</label><p data-part role="status" style="padding:8px 0;min-height:36px">Click a board or post to see its size.</p>
   <div class="model-stage" data-stage aria-label="Interactive three-dimensional model of the garden enclosure"></div>
-  <div class="model-note text-small">Drag to orbit; scroll to zoom. Click a component to inspect it. Separation is illustrative; dimensions remain unchanged. Base, soil, and wire are hidden for clarity. Component IDs refer to this model, which uses the fixed specification.</div>
+  <div class="model-note text-small">Drag to orbit; scroll to zoom. Click a component to inspect it. Pieces radiate from the garden center. Separation is illustrative; dimensions remain unchanged. Base, soil, and wire are hidden for clarity. Component IDs refer to this model, which uses the fixed specification.</div>
   <script type="module">
     import * as THREE from 'https://esm.sh/three@0.169.0';
     import { OrbitControls } from 'https://esm.sh/three@0.169.0/examples/jsm/controls/OrbitControls.js';
@@ -1076,22 +1076,13 @@ html,body{height:100%;overflow:hidden}
     ];
     interiorSupportCenters.forEach(([x,z]) => box(3.5,16.5,3.5,x,8.25,z,matPost));
 
-    // Fan each board course outward as well as upward so top view reveals the layers.
+    // All part centers move along rays from the exact center of the garden:
+    // midpoint of its 120 x 72 footprint and 48-inch height.
+    // A common scale keeps the explosion coherent and exactly reversible.
+    const nucleus = new THREE.Vector3(60,24,36);
     for (const mesh of parts) {
-      const {origin:p,category,dimensions:{h}} = mesh.userData;
-      const tier = Math.max(0,Math.round((p.y-2.75)/5.5));
-      const rotatedSide = mesh.rotation.y !== 0 || mesh.userData.dimensions.d > 3.5;
-      const normalX = rotatedSide ? Math.sign(p.x-60) : 0;
-      const normalZ = rotatedSide ? 0 : Math.sign(p.z-36);
-      if (category === 'post') mesh.userData.offset.set((p.x-60)*1.5,5,(p.z-36)*1.5);
-      else if (category === 'rail') mesh.userData.offset.set((p.x-60)*0.95+normalX*10,82,(p.z-36)*0.95+normalZ*10);
-      else {
-        const spread = category === 'outer' ? 0.9 : 0.3;
-        const fan = 13 + tier*13;
-        mesh.userData.offset.set((p.x-60)*spread+normalX*fan,20+tier*17,(p.z-36)*spread+normalZ*fan);
-      }
+      mesh.userData.offset.copy(mesh.userData.origin).sub(nucleus).multiplyScalar(2.4);
     }
-
     const slider = root.querySelector('[data-explosion]');
     const filter = root.querySelector('[data-filter]');
     const picker = root.querySelector('[data-component]');
