@@ -25,6 +25,7 @@ const gateLines: Line[] = [
 ];
 
 export function GardenSite() {
+  const [frameView, setFrameView] = useState<"assembled" | "exploded">("assembled");
   const [lines, setLines] = useState<Line[]>(lockedLines);
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -104,7 +105,12 @@ export function GardenSite() {
 
     <section className="model-section" id="model">
       <div className="section-head"><div><p className="eyebrow">1 / DESIGN</p><h2>Interactive frame model</h2></div><p>Drag to orbit. Use the controls for top view and measurements. The gate is not part of this frame specification.</p></div>
-      <div className="model-shell"><iframe src={import.meta.env.BASE_URL + "garden-model.html"} title="Interactive 3D garden frame model" loading="eager"/></div>
+      <div className="model-view-tabs" role="group" aria-label="Frame model view">
+        <button type="button" className={frameView === "assembled" ? "" : "quiet"} aria-pressed={frameView === "assembled"} onClick={() => setFrameView("assembled")}>Original view</button>
+        <button type="button" className={frameView === "exploded" ? "" : "quiet"} aria-pressed={frameView === "exploded"} onClick={() => setFrameView("exploded")}>Exploded view</button>
+      </div>
+      <div className="model-shell" hidden={frameView !== "assembled"}><iframe src={import.meta.env.BASE_URL + "garden-model.html"} title="Interactive 3D garden frame model" loading="eager"/></div>
+      {frameView === "exploded" && <div className="model-shell"><iframe src={import.meta.env.BASE_URL + "garden-exploded.html"} title="Exploded garden frame model with component inspection"/></div>}
       <div className="dimension-strip"><span>Footprint <b>120″ × 72″ max</b></span><span>Planting band <b>18″ clear</b></span><span>Gate allowance <b>24″ clear</b></span><span>Retaining height <b>16½″ actual</b></span></div>
     </section>
 
