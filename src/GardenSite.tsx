@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { HardwareSupplies } from "./HardwareSupplies";
 
 type Line = { id: string; category: string; material: string; length: string; qty: number; purpose: string };
 
@@ -93,15 +94,15 @@ export function GardenSite() {
 
   function exportPdf() {
     const previousTitle = document.title;
-    document.title = "Garden Lumber Specification";
+    document.title = "Garden Build List";
     window.addEventListener("afterprint", () => { document.title = previousTitle; }, { once: true });
     window.print();
   }
 
   return <main>
     <header className="simple-header">
-      <div><h1>Garden Frame</h1><span className="print-title">Full lumber specification</span></div>
-      <div className="header-tools"><p>120″ wide × 72″ deep × 48″ high</p><button type="button" onClick={exportPdf}>Export lumber PDF</button></div>
+      <div><h1>Garden Frame</h1><span className="print-title">Lumber & hardware build list</span></div>
+      <div className="header-tools"><a href="#hardware" className="hardware-jump">Hardware list ↓</a><p>120″ wide × 72″ deep × 48″ high</p><button type="button" onClick={exportPdf}>Export build list PDF</button></div>
     </header>
 
     <section className="model-section" id="model">
@@ -137,6 +138,7 @@ export function GardenSite() {
       <p className="fineprint">Finished gate leaf: 23″ wide × 46½″ high. Installed 1½″ above the pad for a 48″ top alignment. Nominal 2×2 lumber is approximately 1½″ × 1½″ actual.</p>
     </section>
 
-    <footer>Frame and gate lumber specifications</footer>
+    <HardwareSupplies />
+    <footer>Garden frame, gate, and hardware build list</footer>
   </main>;
 }
