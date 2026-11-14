@@ -903,7 +903,7 @@ html,body{height:100%;overflow:hidden}
 #garden-geometry-model [data-part]{margin:0;padding:0!important;min-height:20px!important;font-size:12px}
 #garden-geometry-model .model-stage{height:auto;min-height:160px;flex:1}
 #garden-geometry-model .selected-part{background:#202620;color:white;padding:4px 7px;border:0;font-weight:700}
-#garden-geometry-model .model-note{margin:0;font-size:11px}
+#garden-geometry-model .model-note{margin:0;font-size:11px}#garden-geometry-model .nucleus-label{font-size:10px;color:#277fa3;background:rgba(255,255,255,.9);border:1px solid #bfd1d8;padding:2px 5px;pointer-events:none}
 #garden-geometry-model [hidden]{display:none!important}
 </style></head>
 <body>
@@ -930,9 +930,9 @@ html,body{height:100%;overflow:hidden}
 <label>Separation <input data-explosion type="range" min="0" max="100" value="55" style="width:130px;vertical-align:middle"> <output data-percent>55%</output></label>
 <label>Show <select data-filter aria-label="Component group"><option value="all">All components</option><option value="outer">Outer walls</option><option value="inner">Interior bed</option><option value="rail">Top rails</option><option value="post">Posts</option></select></label>
 </div>
-<label class="component-picker">Component <select data-component aria-label="Individual component"><option value="">Choose a board or post</option></select></label><label class="isolate-control"><input type="checkbox" data-isolate> Isolate selected</label><p data-part role="status" style="padding:8px 0;min-height:36px">Click a board or post to see its size.</p>
+<label class="component-picker">Component <select data-component aria-label="Individual component"><option value="">Choose a board or post</option></select></label><label class="guide-control"><input type="checkbox" data-guides checked> Guide lines</label><label class="center-control"><input type="checkbox" data-center checked> Center marker</label><label class="isolate-control"><input type="checkbox" data-isolate> Isolate selected</label><p data-part role="status" style="padding:8px 0;min-height:36px">Click a board or post to see its size.</p>
   <div class="model-stage" data-stage aria-label="Interactive three-dimensional model of the garden enclosure"></div>
-  <div class="model-note text-small">Drag to orbit; scroll to zoom. Click a component to inspect it. Pieces radiate from the garden center; the camera stays fixed as you adjust separation. Separation is illustrative; dimensions remain unchanged. Base, soil, and wire are hidden for clarity. Component IDs refer to this model, which uses the fixed specification.</div>
+  <div class="model-note text-small">Drag to orbit; scroll to zoom. Click a component to inspect it. Pieces radiate from the garden center; the camera stays fixed as you adjust separation. Dashed lines connect pieces to their assembled positions. Separation is illustrative; dimensions remain unchanged. Base, soil, and wire are hidden for clarity. Component IDs refer to this model, which uses the fixed specification.</div>
   <script type="module">
     import * as THREE from 'https://esm.sh/three@0.169.0';
     import { OrbitControls } from 'https://esm.sh/three@0.169.0/examples/jsm/controls/OrbitControls.js';
@@ -1089,6 +1089,52 @@ html,body{height:100%;overflow:hidden}
     const isolate = root.querySelector('[data-isolate]');
     const readout = root.querySelector('[data-part]');
     let selected = null, currentView = 'three';
+    const guidesToggle = root.querySelector('[data-guides]');
+    const centerToggle = root.querySelector('[data-center]');
+    const guideMaterial = new THREE.LineDashedMaterial({color:0x718080,dashSize:2.5,gapSize:2,transparent:true,opacity:0.24});
+    const activeGuideMaterial = new THREE.LineDashedMaterial({color:0x277fa3,dashSize:2.5,gapSize:2,transparent:true,opacity:0.9});
+    const guides = new Map();
+    for (const mesh of parts) {
+      const geometry = new THREE.BufferGeometry().setFromPoints([mesh.userData.origin,mesh.position]);
+      const line = new THREE.Line(geometry,guideMaterial);
+      line.computeLineDistances();
+      line.frustumCulled = false;
+      scene.add(line);
+      guides.set(mesh,line);
+    }
+    const centerMarker = new THREE.Group();
+    const centerDot = new THREE.Mesh(new THREE.SphereGeometry(1.5,16,12),new THREE.MeshBasicMaterial({color:0x277fa3,transparent:true,opacity:0.85,depthTest:false}));
+    centerDot.renderOrder=5;
+    centerMarker.add(centerDot);
+    const cross = new THREE.LineSegments(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-4,0,0),new THREE.Vector3(4,0,0),
+        new THREE.Vector3(0,-4,0),new THREE.Vector3(0,4,0),
+        new THREE.Vector3(0,0,-4),new THREE.Vector3(0,0,4)
+      ]),
+      new THREE.LineBasicMaterial({color:0x277fa3,transparent:true,opacity:0.65,depthTest:false})
+    );
+    cross.renderOrder=5; centerMarker.add(cross);
+    centerMarker.position.copy(nucleus); scene.add(centerMarker);
+    const centerLabel=document.createElement('div');
+    centerLabel.className='model-label nucleus-label';
+    centerLabel.textContent='Garden center';
+    stage.appendChild(centerLabel);
+    function updateGuides() {
+      const separated = Number(slider.value)>0;
+      for (const [mesh,line] of guides) {
+        line.visible=guidesToggle.checked && separated && mesh.visible;
+        line.material=mesh===selected ? activeGuideMaterial : guideMaterial;
+        const positions=line.geometry.getAttribute('position');
+        positions.setXYZ(0,mesh.userData.origin.x,mesh.userData.origin.y,mesh.userData.origin.z);
+        positions.setXYZ(1,mesh.position.x,mesh.position.y,mesh.position.z);
+        positions.needsUpdate=true;
+        line.computeLineDistances();
+      }
+      centerMarker.visible=centerToggle.checked;
+    }
+    guidesToggle.addEventListener('change',updateGuides);
+    centerToggle.addEventListener('change',updateGuides);
     const selectedLabel = document.createElement('div');
     selectedLabel.className = 'model-label selected-part';
     selectedLabel.hidden = true;
@@ -1105,6 +1151,7 @@ html,body{height:100%;overflow:hidden}
         const groupMatches = filter.value === 'all' || mesh.userData.category === filter.value;
         mesh.visible = groupMatches && (!isolate.checked || !selected || mesh === selected);
       }
+      updateGuides();
       for (const option of picker.options) {
         const mesh = parts.find(p => p.userData.id === option.value);
         option.hidden = !!mesh && filter.value !== 'all' && mesh.userData.category !== filter.value;
@@ -1154,6 +1201,7 @@ html,body{height:100%;overflow:hidden}
       root.querySelector('[data-percent]').textContent = amount + '%';
       slider.setAttribute('aria-valuetext',amount + '% separated');
       for (const mesh of parts) mesh.position.copy(mesh.userData.origin).addScaledVector(mesh.userData.offset,amount/100);
+      updateGuides();
       if (fit) fitModel();
     }
     slider.addEventListener('input', () => updateExplosion(slider.value));
@@ -1201,6 +1249,10 @@ html,body{height:100%;overflow:hidden}
       if (isolate.checked) fitModel();
     },true);
     function projectLabels() {
+      const center=nucleus.clone().project(camera);
+      centerLabel.hidden=!centerToggle.checked || center.z < -1 || center.z > 1 || Math.abs(center.x)>1 || Math.abs(center.y)>1;
+      centerLabel.style.left=((center.x*.5+.5)*stage.clientWidth)+'px';
+      centerLabel.style.top=((-center.y*.5+.5)*stage.clientHeight+16)+'px';
       if (!selected || !selected.visible) { selectedLabel.hidden=true; return; }
       const p = selected.getWorldPosition(new THREE.Vector3()).project(camera);
       selectedLabel.hidden = p.z < -1 || p.z > 1 || Math.abs(p.x)>1 || Math.abs(p.y)>1;
