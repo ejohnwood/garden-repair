@@ -892,7 +892,20 @@ svg.lucide {
 }
 
 html>body{padding:0}</style>
-</head>
+<style>
+html,body{height:100%;overflow:hidden}
+#garden-geometry-model{height:100%;display:flex;flex-direction:column;padding:10px;gap:8px}
+#garden-geometry-model .viz-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0}
+#garden-geometry-model label{font-size:12px;display:inline-flex;align-items:center;gap:6px}
+#garden-geometry-model select{max-width:100%;font:inherit;padding:5px}
+#garden-geometry-model .component-picker select{width:min(100%,430px)}
+#garden-geometry-model .component-picker{flex-wrap:wrap}
+#garden-geometry-model [data-part]{margin:0;padding:0!important;min-height:20px!important;font-size:12px}
+#garden-geometry-model .model-stage{height:auto;min-height:160px;flex:1}
+#garden-geometry-model .selected-part{background:#202620;color:white;padding:4px 7px;border:0;font-weight:700}
+#garden-geometry-model .model-note{margin:0;font-size:11px}
+#garden-geometry-model [hidden]{display:none!important}
+</style></head>
 <body>
 <div id="garden-geometry-model">
   <style>
@@ -913,13 +926,13 @@ html>body{padding:0}</style>
 <button type="button" class="btn btn-primary" data-view="three">3D view</button>
 <button type="button" class="btn" data-view="top">Top view</button>
 <button type="button" class="btn" data-assemble>Assemble</button>
-<button type="button" class="btn" data-explode>Explode</button>
+<button type="button" class="btn" data-explode>Explode</button><button type="button" class="btn" data-fit>Fit model</button>
 <label>Separation <input data-explosion type="range" min="0" max="100" value="55" style="width:130px;vertical-align:middle"> <output data-percent>55%</output></label>
 <label>Show <select data-filter aria-label="Component group"><option value="all">All components</option><option value="outer">Outer walls</option><option value="inner">Interior bed</option><option value="rail">Top rails</option><option value="post">Posts</option></select></label>
 </div>
-<p data-part role="status" style="padding:8px 0;min-height:36px">Click a board or post to see its size.</p>
+<label class="component-picker">Component <select data-component aria-label="Individual component"><option value="">Choose a board or post</option></select></label><label class="isolate-control"><input type="checkbox" data-isolate> Isolate selected</label><p data-part role="status" style="padding:8px 0;min-height:36px">Click a board or post to see its size.</p>
   <div class="model-stage" data-stage aria-label="Interactive three-dimensional model of the garden enclosure"></div>
-  <div class="model-note text-small">Drag to orbit; scroll to zoom. Click a component to inspect it. Separation is illustrative; dimensions remain unchanged. Soil and wire are hidden for clarity.</div>
+  <div class="model-note text-small">Drag to orbit; scroll to zoom. Click a component to inspect it. Separation is illustrative; dimensions remain unchanged. Base, soil, and wire are hidden for clarity. Component IDs refer to this model, which uses the fixed specification.</div>
   <script type="module">
     import * as THREE from 'https://esm.sh/three@0.169.0';
     import { OrbitControls } from 'https://esm.sh/three@0.169.0/examples/jsm/controls/OrbitControls.js';
@@ -951,8 +964,8 @@ html>body{padding:0}</style>
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(60, 18, 36);
     controls.enableDamping = true;
-    controls.minDistance = 95;
-    controls.maxDistance = 900;
+    controls.minDistance = 15;
+    controls.maxDistance = 1500;
     controls.maxPolarAngle = Math.PI / 2.03;
 
     scene.add(new THREE.HemisphereLight(color('--background'), color('--muted'), 2.3));
@@ -981,7 +994,11 @@ html>body{padding:0}</style>
         const length = material === matPost ? h : Math.max(w,d);
         const nominal = material === matPost ? '4x4' : category === 'rail' ? '2x4' : '2x6';
         const names = { post: 'Post', rail: 'Top rail', outer: 'Outer retaining wall', inner: 'Interior bed' };
-        mesh.userData = { category, label: names[category] + ' | ' + nominal + ' | ' + length + ' inches', origin: mesh.position.clone(), offset: new THREE.Vector3((x-60)*0.65, category === 'rail' ? 65 : category === 'post' ? 7 : 16+(y-2.75)*2.8, (z-36)*0.95) };
+        const number = parts.filter(p => p.userData.category === category).length + 1;
+        const id = ({outer:'W',inner:'B',rail:'R',post:'P'})[category] + String(number).padStart(2,'0');
+        mesh.userData = { category, id, label: id + ' | ' + names[category] + ' | ' + nominal + ' | ' + length + ' inches', origin: mesh.position.clone(), offset: new THREE.Vector3(), dimensions: {w,h,d} };
+        mesh.material = material.clone();
+        mesh.material.color.setHex(({outer:0xb87333,inner:0x52876a,rail:0x537ba5,post:0x9a765c})[category]);
         parts.push(mesh);
       }
       return mesh;
@@ -995,7 +1012,7 @@ html>body{padding:0}</style>
       return mesh;
     }
 
-    box(132, 0.8, 84, 60, -0.6, 36, matPath).receiveShadow = true;
+
 
 
     const postCenters = [
@@ -1059,61 +1076,158 @@ html>body{padding:0}</style>
     ];
     interiorSupportCenters.forEach(([x,z]) => box(3.5,16.5,3.5,x,8.25,z,matPost));
 
+    // Fan each board course outward as well as upward so top view reveals the layers.
+    for (const mesh of parts) {
+      const {origin:p,category,dimensions:{h}} = mesh.userData;
+      const tier = Math.max(0,Math.round((p.y-2.75)/5.5));
+      const rotatedSide = mesh.rotation.y !== 0 || mesh.userData.dimensions.d > 3.5;
+      const normalX = rotatedSide ? Math.sign(p.x-60) : 0;
+      const normalZ = rotatedSide ? 0 : Math.sign(p.z-36);
+      if (category === 'post') mesh.userData.offset.set((p.x-60)*1.5,5,(p.z-36)*1.5);
+      else if (category === 'rail') mesh.userData.offset.set((p.x-60)*0.95+normalX*10,82,(p.z-36)*0.95+normalZ*10);
+      else {
+        const spread = category === 'outer' ? 0.9 : 0.3;
+        const fan = 13 + tier*13;
+        mesh.userData.offset.set((p.x-60)*spread+normalX*fan,20+tier*17,(p.z-36)*spread+normalZ*fan);
+      }
+    }
+
     const slider = root.querySelector('[data-explosion]');
     const filter = root.querySelector('[data-filter]');
+    const picker = root.querySelector('[data-component]');
+    const isolate = root.querySelector('[data-isolate]');
     const readout = root.querySelector('[data-part]');
-    let selected = null;
-    function selectPart(mesh) {
-      if (selected) { selected.material.dispose(); selected.material = selected.userData.originalMaterial; }
-      selected = mesh;
-      if (mesh) {
-        mesh.userData.originalMaterial = mesh.material;
-        mesh.material = mesh.material.clone();
-        mesh.material.emissive.setHex(0x277fa3);
-        mesh.material.emissiveIntensity = 0.45;
-      }
-      readout.textContent = mesh ? mesh.userData.label : 'Click a board or post to see its size. ' + parts.filter(p => p.visible).length + ' components shown.';
+    let selected = null, currentView = 'three';
+    const selectedLabel = document.createElement('div');
+    selectedLabel.className = 'model-label selected-part';
+    selectedLabel.hidden = true;
+    stage.appendChild(selectedLabel);
+    for (const mesh of parts) {
+      const option = document.createElement('option');
+      option.value = mesh.userData.id;
+      option.textContent = mesh.userData.label;
+      picker.appendChild(option);
     }
-    function updateExplosion(value) {
-      slider.value = String(value);
-      root.querySelector('[data-percent]').textContent = value + '%';
-      for (const mesh of parts) mesh.position.copy(mesh.userData.origin).addScaledVector(mesh.userData.offset,Number(value)/100);
+
+    function updateVisibility() {
+      for (const mesh of parts) {
+        const groupMatches = filter.value === 'all' || mesh.userData.category === filter.value;
+        mesh.visible = groupMatches && (!isolate.checked || !selected || mesh === selected);
+      }
+      for (const option of picker.options) {
+        const mesh = parts.find(p => p.userData.id === option.value);
+        option.hidden = !!mesh && filter.value !== 'all' && mesh.userData.category !== filter.value;
+      }
+    }
+    function selectPart(mesh) {
+      if (selected) selected.material.emissive.setHex(0);
+      selected = mesh;
+      picker.value = mesh?.userData.id ?? '';
+      if (mesh) { mesh.material.emissive.setHex(0x277fa3); mesh.material.emissiveIntensity = 0.65; }
+      updateVisibility();
+      readout.textContent = mesh ? mesh.userData.label : 'Select a component in the model or list. ' + parts.filter(p => p.visible).length + ' components shown.';
+      selectedLabel.textContent = mesh?.userData.id ?? '';
+      selectedLabel.hidden = !mesh;
+    }
+    function fitModel() {
+      scene.updateMatrixWorld(true);
+      const bounds = new THREE.Box3();
+      for (const mesh of parts) if (mesh.visible) bounds.expandByObject(mesh);
+      if (bounds.isEmpty()) return;
+      const center = bounds.getCenter(new THREE.Vector3());
+      const direction = currentView === 'top' ? new THREE.Vector3(0,1,0.0001).normalize() : camera.position.clone().sub(controls.target).normalize();
+      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),direction).normalize();
+      const up = new THREE.Vector3().crossVectors(direction,right).normalize();
+      const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
+      const tanH = tanV*camera.aspect;
+      let distance = 0;
+      for (const x of [bounds.min.x,bounds.max.x])
+        for (const y of [bounds.min.y,bounds.max.y])
+          for (const z of [bounds.min.z,bounds.max.z]) {
+            const p = new THREE.Vector3(x,y,z).sub(center);
+            distance = Math.max(distance,p.dot(direction)+Math.max(Math.abs(p.dot(right))/tanH,Math.abs(p.dot(up))/tanV));
+          }
+      controls.target.copy(center);
+      camera.position.copy(center).addScaledVector(direction,Math.max(25,distance*1.16));
+      controls.update();
+    }
+    function updateExplosion(value,fit=true) {
+      const amount = Math.max(0,Math.min(100,Number(value)));
+      slider.value = String(amount);
+      root.querySelector('[data-percent]').textContent = amount + '%';
+      slider.setAttribute('aria-valuetext',amount + '% separated');
+      for (const mesh of parts) mesh.position.copy(mesh.userData.origin).addScaledVector(mesh.userData.offset,amount/100);
+      if (fit) fitModel();
     }
     slider.addEventListener('input', () => updateExplosion(slider.value));
     root.querySelector('[data-assemble]').addEventListener('click', () => updateExplosion(0));
     root.querySelector('[data-explode]').addEventListener('click', () => updateExplosion(100));
-    filter.addEventListener('change', () => {
-      for (const mesh of parts) mesh.visible = filter.value === 'all' || mesh.userData.category === filter.value;
-      selectPart(null);
+    root.querySelector('[data-fit]').addEventListener('click',fitModel);
+    filter.addEventListener('change', () => { selectPart(null); fitModel(); });
+    picker.addEventListener('change', () => {
+      selectPart(parts.find(p => p.userData.id === picker.value) ?? null);
+      if (isolate.checked) fitModel();
     });
-    const raycaster = new THREE.Raycaster();
-    let pointerStart = null;
-    renderer.domElement.addEventListener('pointerdown', e => { pointerStart = [e.clientX,e.clientY]; });
-    renderer.domElement.addEventListener('pointerup', e => {
-      if (!pointerStart || Math.hypot(e.clientX-pointerStart[0],e.clientY-pointerStart[1]) > 6) return;
-      const rect = renderer.domElement.getBoundingClientRect();
-      raycaster.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,1-(e.clientY-rect.top)/rect.height*2),camera);
-      selectPart(raycaster.intersectObjects(parts.filter(p => p.visible),false)[0]?.object ?? null);
-    });
-    function projectLabels() {}
-    updateExplosion(55);
-    selectPart(null);
-    function setView(mode) {
-      viewButtons.forEach(b=>{ const active=b.dataset.view===mode; b.classList.toggle('btn-primary',active); b.setAttribute('aria-pressed',String(active)); });
-      if(mode==='top') { camera.position.set(60,390,36.01); controls.target.set(60,35,36); controls.enableRotate=false; }
-      else { camera.position.set(245,215,270); controls.target.set(60,45,36); controls.enableRotate=true; }
-      controls.update();
-    }
-    setView('three');
-    viewButtons.forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+    isolate.addEventListener('change', () => { updateVisibility(); fitModel(); });
 
+    const raycaster = new THREE.Raycaster();
+    // Capture before OrbitControls handles the pointer so clicks and touch taps are reliable.
+    let pointerStart = null;
+    renderer.domElement.addEventListener('pointerdown', e => { pointerStart = {x:e.clientX,y:e.clientY,id:e.pointerId}; },true);
+    renderer.domElement.addEventListener('pointercancel', () => { pointerStart=null; },true);
+    renderer.domElement.addEventListener('pointerup', e => {
+      const start = pointerStart; pointerStart = null;
+      if (!start || start.id !== e.pointerId || Math.hypot(e.clientX-start.x,e.clientY-start.y) > 6) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      scene.updateMatrixWorld(true); camera.updateMatrixWorld(true);
+      raycaster.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,1-(e.clientY-rect.top)/rect.height*2),camera);
+      const hit = raycaster.intersectObjects(parts.filter(p => p.visible),false)[0];
+      let picked = hit?.object ?? null;
+      if (!picked) {
+        let bestDistance = 8;
+        for (const mesh of parts) if (mesh.visible) {
+          const {w,h,d} = mesh.userData.dimensions;
+          const axis = h >= w && h >= d ? new THREE.Vector3(0,h/2,0) : w >= d ? new THREE.Vector3(w/2,0,0) : new THREE.Vector3(0,0,d/2);
+          const a = mesh.localToWorld(axis.clone().multiplyScalar(-1)).project(camera);
+          const b = mesh.localToWorld(axis.clone()).project(camera);
+          if (a.z < -1 || a.z > 1 || b.z < -1 || b.z > 1) continue;
+          const ax=(a.x*.5+.5)*rect.width, ay=(-a.y*.5+.5)*rect.height;
+          const bx=(b.x*.5+.5)*rect.width, by=(-b.y*.5+.5)*rect.height;
+          const px=e.clientX-rect.left, py=e.clientY-rect.top;
+          const dx=bx-ax, dy=by-ay;
+          const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy||1)));
+          const distance=Math.hypot(px-ax-t*dx,py-ay-t*dy);
+          if (distance < bestDistance) { bestDistance=distance; picked=mesh; }
+        }
+      }
+      selectPart(picked);
+      if (isolate.checked) fitModel();
+    },true);
+    function projectLabels() {
+      if (!selected || !selected.visible) { selectedLabel.hidden=true; return; }
+      const p = selected.getWorldPosition(new THREE.Vector3()).project(camera);
+      selectedLabel.hidden = p.z < -1 || p.z > 1 || Math.abs(p.x)>1 || Math.abs(p.y)>1;
+      selectedLabel.style.left = ((p.x*.5+.5)*stage.clientWidth)+'px';
+      selectedLabel.style.top = ((-p.y*.5+.5)*stage.clientHeight)+'px';
+    }
+    function setView(mode) {
+      currentView = mode;
+      viewButtons.forEach(b=>{ const active=b.dataset.view===mode; b.classList.toggle('btn-primary',active); b.setAttribute('aria-pressed',String(active)); });
+      controls.enableRotate = mode !== 'top';
+      if (mode !== 'top') camera.position.copy(controls.target).add(new THREE.Vector3(185,170,234));
+      fitModel();
+    }
+    viewButtons.forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+    updateExplosion(55,false);
+    selectPart(null);
     function resize() {
       const w=stage.clientWidth,h=stage.clientHeight;
-      renderer.setSize(w,h,false); camera.aspect=w/h; camera.fov=w<480?55:34; camera.updateProjectionMatrix();
+      if (!w || !h) return;
+      renderer.setSize(w,h,false); camera.aspect=w/h; camera.fov=38; camera.updateProjectionMatrix(); fitModel();
     }
     new ResizeObserver(resize).observe(stage); resize();
-    renderer.setAnimationLoop(()=>{ controls.update(); renderer.render(scene,camera); projectLabels(); });
-  </script>
+    setView('three');
+    renderer.setAnimationLoop(()=>{ controls.update(); renderer.render(scene,camera); projectLabels(); });  </script>
 </div>
 
 <script src="https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js"></script>
