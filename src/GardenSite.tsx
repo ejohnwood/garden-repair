@@ -119,6 +119,7 @@ export function GardenSite() {
 
     <section className="model-section" id="model">
       <div className="section-head"><div><p className="eyebrow">1 / DESIGN</p><h2>Interactive frame model</h2></div><p>Drag to orbit. Use the controls for top view and measurements. The gate is not part of this frame specification.</p></div>
+      <p className="explorer-entry"><a href={import.meta.env.BASE_URL + "assembly.html"}>Open Assembly Explorer ↗</a></p>
       <div className="model-view-tabs" role="group" aria-label="Frame model view">
         <button type="button" className={frameView === "assembled" ? "" : "quiet"} aria-pressed={frameView === "assembled"} onClick={() => setFrameView("assembled")}>Original view</button>
         <button type="button" className={frameView === "exploded" ? "" : "quiet"} aria-pressed={frameView === "exploded"} onClick={() => { setExplodedLoaded(true); setFrameView("exploded"); }}>Exploded view</button>
